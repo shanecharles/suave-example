@@ -5,7 +5,7 @@ open Suave.Operators  // Fish operator >=>
 open Suave.Filters    // GET, POST, Put, ...
 open Suave.Successful
 
-let serverDateTime = System.DateTime.UtcNow.ToString() |> OK
+let serverDateTime = warbler (fun _ -> System.DateTime.UtcNow.ToString() |> OK)
 
 let app = 
     choose

@@ -24,7 +24,9 @@ module Db =
                         oldState
                 return! loop newState
             }
-        loop (2,[{Id = 1; Details = "Nothing works"; Closed = None}])
+        loop (4,[{Id = 1; Details = "Nothing works"; Closed = None}
+                 {Id = 2; Details = "Can't add bugs."; Closed = None}
+                 {Id = 3; Details = "Only Bob can close bugs"; Closed = None}])
         )
 
 module Access = 

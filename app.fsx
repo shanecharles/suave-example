@@ -29,15 +29,14 @@ let updateBug b =
             | Choice1Of2 d -> 
                 let b' = AsyncUpdateBug { b with Details = d } |> Async.RunSynchronously
                 returnBug b'
-            | Choice2Of2 m           -> BAD_REQUEST m)
+            | Choice2Of2 m -> BAD_REQUEST m)
 
 let handleBug id = 
     match AsyncGetBug id |> Async.RunSynchronously with
     | None   -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
     | Some b ->
         choose [ GET  >=> returnBug b 
-                 POST >=> updateBug b
-        ]
+                 POST >=> updateBug b ]
 
 let app = 
     choose

@@ -21,6 +21,7 @@ let getOpenBugs = warbler (fun _ ->
                         let bugs = AsyncGetOpenBugs () |> Async.RunSynchronously
                         bugs |> JsonConvert.SerializeObject |> OK)
 
+let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
 let returnBug b = jsonMime >=> OK (b |> JsonConvert.SerializeObject)
 
 let updateBug b = 
@@ -33,10 +34,17 @@ let updateBug b =
 
 let handleBug id = 
     match AsyncGetBug id |> Async.RunSynchronously with
-    | None   -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
+    | None   -> id |> bugNotFound
     | Some b ->
         choose [ GET  >=> returnBug b 
                  POST >=> updateBug b ]
+
+let closeBug id =
+    match AsyncGetBug id |> Async.RunSynchronously with
+    | None   -> id |> bugNotFound
+    | Some b -> 
+        AsyncUpdateBug { b with Closed = Some DateTime.UtcNow } |> Async.RunSynchronously
+        |> returnBug
 
 let app = 
     choose
@@ -44,6 +52,8 @@ let app =
         GET >=> choose 
             [ path "/" >=> OK "Faster APIs with Suave.IO"
               path "/api/bugs/open" >=> jsonMime >=> getOpenBugs
-              path "/api/time" >=> serverDateTime ]]
+              path "/api/time" >=> serverDateTime ]
+        Authentication.authenticateBasic ((=) ("bob","1password")) <|
+            choose [ POST >=> pathScan "/api/bugs/%d/close" closeBug ]]
 
 startWebServer defaultConfig app

@@ -21,30 +21,30 @@ let getOpenBugs = warbler (fun _ ->
                         let bugs = AsyncGetOpenBugs () |> Async.RunSynchronously
                         bugs |> JsonConvert.SerializeObject |> OK)
 
-let bugDetails id = 
-    match AsyncGetBug id |> Async.RunSynchronously with 
-    | None   -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
-    | Some b -> jsonMime >=> OK (JsonConvert.SerializeObject(b))
+let returnBug b = jsonMime >=> OK (b |> JsonConvert.SerializeObject)
 
-let updateBug id = 
-    match AsyncGetBug id |> Async.RunSynchronously with
-    | None   -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
-    | Some b -> 
-        jsonMime >=> request (fun r -> 
+let updateBug b = 
+    request (fun r -> 
             match r.formData "details" with 
             | Choice1Of2 d -> 
                 let b' = AsyncUpdateBug { b with Details = d } |> Async.RunSynchronously
-                OK (JsonConvert.SerializeObject(b'))
+                returnBug b'
             | Choice2Of2 m           -> BAD_REQUEST m)
+
+let handleBug id = 
+    match AsyncGetBug id |> Async.RunSynchronously with
+    | None   -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
+    | Some b ->
+        choose [ GET  >=> returnBug b 
+                 POST >=> updateBug b
+        ]
 
 let app = 
     choose
-      [ POST >=> choose
-            [ pathScan "/api/bugs/%d" updateBug ]
+      [ pathScan "/api/bugs/%d" handleBug 
         GET >=> choose 
             [ path "/" >=> OK "Faster APIs with Suave.IO"
               path "/api/bugs/open" >=> jsonMime >=> getOpenBugs
-              pathScan "/api/bugs/%d" bugDetails
               path "/api/time" >=> serverDateTime ]]
 
 startWebServer defaultConfig app

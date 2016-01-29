@@ -9,7 +9,7 @@ module Db =
 
     type DbQuery = 
         | OpenBugs of AsyncReplyChannel<Bug list>
-        | Bug of AsyncReplyChannel<Bug list> * int
+        | Bug of AsyncReplyChannel<Bug option> * int
         | Update of AsyncReplyChannel<Bug> * Bug
 
     let db = MailboxProcessor.Start(fun inbox -> 
@@ -22,7 +22,7 @@ module Db =
                         c.Reply (bugs)
                         oldState
                     | Bug (c, id) ->
-                        c.Reply (bugs |> List.filter (fun {Id = id'} -> id = id'))
+                        c.Reply (bugs |> List.filter (fun {Id = id'} -> id = id') |> function | [] -> None | h :: _ -> Some h)
                         oldState
                     | Update (c, b) ->
                         c.Reply (b)

@@ -6,6 +6,8 @@ open Suave
 open Suave.Operators  // Fish operator >=>
 open Suave.Filters    // GET, POST, Put, ...
 open Suave.Successful
+open Suave.Model.Binding
+open Suave.RequestErrors
 open System
 open BugDb.Access
 
@@ -14,21 +16,32 @@ open Newtonsoft.Json
 let serverDateTime = warbler (fun _ -> System.DateTime.UtcNow.ToString() |> OK)
 
 let jsonMime = Writers.setMimeType "application/json"
-let getOpenBugs = (fun x -> 
-                    async { 
-                        let! bugs = AsyncGetOpenBugs
-                        return! OK (bugs |> JsonConvert.SerializeObject) x
-                    })
+
+let getOpenBugs = warbler (fun _ -> 
+                        let bugs = AsyncGetOpenBugs () |> Async.RunSynchronously
+                        bugs |> JsonConvert.SerializeObject |> OK)
 
 let bugDetails id = 
     match AsyncGetBug id |> Async.RunSynchronously with 
     | [] -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
     | h :: _ -> OK (JsonConvert.SerializeObject(h))
 
+let updateBug id = 
+    match AsyncGetBug id |> Async.RunSynchronously with
+    | [] -> id |> sprintf "Bug id %d is not found." |> RequestErrors.NOT_FOUND
+    | h :: _ -> 
+        jsonMime >=> request (fun r -> 
+            match r.formData "details" with 
+            | Choice1Of2 d -> 
+                let b = AsyncUpdateBug { h with Details = d } |> Async.RunSynchronously
+                OK (JsonConvert.SerializeObject(b))
+            | Choice2Of2 m           -> BAD_REQUEST m)
 
 let app = 
     choose
-      [ GET >=> choose 
+      [ POST >=> choose
+            [ pathScan "/api/bugs/%d" updateBug ]
+        GET >=> choose 
             [ path "/" >=> OK "Faster APIs with Suave.IO"
               path "/api/bugs/open" >=> jsonMime >=> getOpenBugs
               pathScan "/api/bugs/%d" bugDetails

@@ -3,15 +3,17 @@
 module Db =
 
     open System
+    open FSharp.Core
 
     type Bug = { Id : int; Details : string; Closed : DateTime option }
 
     type DbQuery = 
         | OpenBugs of AsyncReplyChannel<Bug list>
         | Bug of AsyncReplyChannel<Bug list> * int
+        | Update of AsyncReplyChannel<Bug> * Bug
 
     let db = MailboxProcessor.Start(fun inbox -> 
-        let rec loop ((id, bugs) as oldState) = 
+        let rec loop ((cid, bugs) as oldState) = 
             async {
                 let! msg = inbox.Receive ()
                 let newState = 
@@ -22,6 +24,10 @@ module Db =
                     | Bug (c, id) ->
                         c.Reply (bugs |> List.filter (fun {Id = id'} -> id = id'))
                         oldState
+                    | Update (c, b) ->
+                        c.Reply (b)
+                        let bugs' = b :: (bugs |> List.filter (fun {Id = id} -> id <> b.Id))
+                        (cid, bugs')
                 return! loop newState
             }
         loop (4,[{Id = 1; Details = "Nothing works"; Closed = None}
@@ -32,5 +38,6 @@ module Db =
 module Access = 
     open Db
 
-    let AsyncGetOpenBugs = Db.db.PostAndAsyncReply(fun c -> OpenBugs c)
+    let AsyncGetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> OpenBugs c)
     let AsyncGetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id))
+    let AsyncUpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b))

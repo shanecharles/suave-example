@@ -24,6 +24,15 @@ let getOpenBugs = warbler (fun _ ->
 let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
 let returnBug b = jsonMime >=> OK (b |> JsonConvert.SerializeObject)
 
+let createBug = 
+    request (fun r -> 
+            match r.formData "details" with
+            | Choice1Of2 d -> 
+                d |> AsyncCreateBug 
+                |> Async.RunSynchronously
+                |> returnBug
+            | Choice2Of2 _ -> BAD_REQUEST "There were no details for the developers.")
+
 let updateBug b = 
     request (fun r -> 
             match r.formData "details" with 
@@ -49,6 +58,8 @@ let closeBug id =
 let app = 
     choose
       [ pathScan "/api/bugs/%d" handleBug 
+        POST >=> choose
+            [ path "/api/bugs/create" >=> createBug ] 
         GET >=> choose 
             [ path "/" >=> OK "Faster APIs with Suave.IO"
               path "/api/bugs/open" >=> jsonMime >=> getOpenBugs

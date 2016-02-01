@@ -10,15 +10,12 @@ open Suave.Model.Binding
 open Suave.RequestErrors
 open System
 open BugDb.Access
-
 open Newtonsoft.Json
 
 let serverDateTime = warbler (fun _ -> System.DateTime.UtcNow.ToString() |> OK)
-
 let jsonMime = Writers.setMimeType "application/json"
-
 let getOpenBugs = warbler (fun _ -> 
-                        let bugs = AsyncGetOpenBugs () |> Async.RunSynchronously
+                        let bugs = GetOpenBugs ()
                         bugs |> JsonConvert.SerializeObject |> OK)
 
 let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
@@ -27,33 +24,29 @@ let returnBug b = jsonMime >=> OK (b |> JsonConvert.SerializeObject)
 let createBug = 
     request (fun r -> 
             match r.formData "details" with
-            | Choice1Of2 d -> 
-                d |> AsyncCreateBug 
-                |> Async.RunSynchronously
-                |> returnBug
+            | Choice1Of2 d -> d |> CreateBug |> returnBug
             | Choice2Of2 _ -> BAD_REQUEST "There were no details for the developers.")
 
 let updateBug b = 
     request (fun r -> 
             match r.formData "details" with 
             | Choice1Of2 d -> 
-                let b' = AsyncUpdateBug { b with Details = d } |> Async.RunSynchronously
-                returnBug b'
+                UpdateBug { b with Details = d }
+                |> returnBug
             | Choice2Of2 m -> BAD_REQUEST m)
 
 let handleBug id = 
-    match AsyncGetBug id |> Async.RunSynchronously with
+    match GetBug id with
     | None   -> id |> bugNotFound
     | Some b ->
         choose [ GET  >=> returnBug b 
                  POST >=> updateBug b ]
 
 let closeBug id =
-    match AsyncGetBug id |> Async.RunSynchronously with
+    match GetBug id with
     | None   -> id |> bugNotFound
-    | Some b -> 
-        AsyncUpdateBug { b with Closed = Some DateTime.UtcNow } |> Async.RunSynchronously
-        |> returnBug
+    | Some b -> UpdateBug { b with Closed = Some DateTime.UtcNow }
+                |> returnBug
 
 let app = 
     choose

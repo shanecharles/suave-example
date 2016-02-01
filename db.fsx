@@ -1,7 +1,6 @@
 ﻿namespace BugDb
 
 module Db =
-
     open System
     open FSharp.Core
 
@@ -43,7 +42,7 @@ module Db =
 module Access = 
     open Db
 
-    let AsyncGetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> OpenBugs c)
-    let AsyncGetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id))
-    let AsyncUpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b))
-    let AsyncCreateBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d))
+    let GetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> OpenBugs c) |> Async.RunSynchronously
+    let GetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id)) |> Async.RunSynchronously
+    let UpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b)) |> Async.RunSynchronously
+    let CreateBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously

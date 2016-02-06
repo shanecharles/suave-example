@@ -1,10 +1,13 @@
 ﻿namespace BugDb
 
+module Models = 
+    open System
+    type Bug = { Id : int; Details : string; Closed : DateTime option }
+
 module Db =
     open System
     open FSharp.Core
-
-    type Bug = { Id : int; Details : string; Closed : DateTime option }
+    open Models
 
     type DbQuery = 
         | OpenBugs of AsyncReplyChannel<Bug list>
@@ -19,7 +22,7 @@ module Db =
                 let newState = 
                     match msg with
                     | OpenBugs c -> 
-                        c.Reply (bugs)
+                        c.Reply (bugs |> List.filter (fun {Closed = c} -> c.IsNone ))
                         oldState
                     | Bug (c, id) ->
                         c.Reply (bugs |> List.filter (fun {Id = id'} -> id = id') |> function | [] -> None | h :: _ -> Some h)

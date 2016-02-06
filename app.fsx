@@ -10,54 +10,60 @@ open Suave.Model.Binding
 open Suave.RequestErrors
 open System
 open BugDb.Access
+open BugDb.Models
 open Newtonsoft.Json
+open Newtonsoft.Json.Linq
 
-let serverDateTime = warbler (fun _ -> System.DateTime.UtcNow.ToString() |> OK)
+let nullableDate : DateTime option -> Nullable<DateTime> = function
+    | None -> Nullable<DateTime> () 
+    | Some d -> Nullable d
+
+let serializeBug (b : Bug) = JObject(JProperty("Id",b.Id),JProperty("Details",b.Details),JProperty("Closed", nullableDate(b.Closed)))
+let serializeBugs bugs = JObject(JProperty("Bugs",JArray(bugs |> List.map serializeBug)))
+
 let jsonMime = Writers.setMimeType "application/json"
 let getOpenBugs = warbler (fun _ -> 
-                        let bugs = GetOpenBugs ()
-                        bugs |> JsonConvert.SerializeObject |> OK)
+                        GetOpenBugs () |> serializeBugs 
+                        |> fun s -> s.ToString()
+                        |> OK)
 
 let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
-let returnBug b = jsonMime >=> OK (b |> JsonConvert.SerializeObject)
+let okBug b = jsonMime >=> OK (b |> serializeBug |> fun s -> s.ToString())
 
 let createBug = 
     request (fun r -> 
             match r.formData "details" with
-            | Choice1Of2 d -> d |> CreateBug |> returnBug
+            | Choice1Of2 d -> d |> CreateBug |> okBug
             | Choice2Of2 _ -> BAD_REQUEST "There were no details for the developers.")
 
 let updateBug b = 
     request (fun r -> 
             match r.formData "details" with 
             | Choice1Of2 d -> 
-                UpdateBug { b with Details = d }
-                |> returnBug
+                UpdateBug { b with Details = d } |> okBug
             | Choice2Of2 m -> BAD_REQUEST m)
 
 let handleBug id = 
     match GetBug id with
     | None   -> id |> bugNotFound
     | Some b ->
-        choose [ GET  >=> returnBug b 
+        choose [ GET  >=> okBug b 
                  POST >=> updateBug b ]
 
 let closeBug id =
     match GetBug id with
     | None   -> id |> bugNotFound
     | Some b -> UpdateBug { b with Closed = Some DateTime.UtcNow }
-                |> returnBug
+                |> okBug
 
 let app = 
     choose
       [ pathScan "/api/bugs/%d" handleBug 
         POST >=> choose
-            [ path "/api/bugs/create" >=> createBug ] 
+            [ path "/api/bugs/create" >=> createBug 
+              pathScan "/api/bugs/%d/close" closeBug ] 
         GET >=> choose 
             [ path "/" >=> OK "Faster APIs with Suave.IO"
-              path "/api/bugs/open" >=> jsonMime >=> getOpenBugs
-              path "/api/time" >=> serverDateTime ]
-        Authentication.authenticateBasic ((=) ("bob","1password")) <|
-            choose [ POST >=> pathScan "/api/bugs/%d/close" closeBug ]]
+              path "/api/bugs/open" >=> jsonMime >=> getOpenBugs ]]
 
 startWebServer defaultConfig app

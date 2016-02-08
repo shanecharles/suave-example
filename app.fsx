@@ -70,4 +70,3 @@ let app =
         [ path "/" >=> OK "Faster APIs with Suave.IO"
           path "/api/bugs/open" >=> jsonMime >=> getOpenBugs ]]
 
-startWebServer defaultConfig app

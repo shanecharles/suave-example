@@ -1,5 +1,8 @@
-#r "packages/Suave/lib/net40/Suave.dll"
-#r "packages/NewtonSoft.Json/lib/net45/newtonsoft.json.dll"
+#I "packages/Suave/lib/net40/"
+#I "packages/NewtonSoft.Json/lib/net45/"
+
+#r "Suave.dll"
+#r "newtonsoft.json.dll"
 #load "db.fsx"
 
 open Suave
@@ -17,18 +20,19 @@ let nullableDate : DateTime option -> Nullable<DateTime> = function
   | None -> Nullable<DateTime> () 
   | Some d -> Nullable d
 
-let serializeBug (b : Bug) = JObject(JProperty("Id",b.Id),JProperty("Details",b.Details),JProperty("Closed", nullableDate(b.Closed)))
-let serializeBugs bugs = JObject(JProperty("Bugs",JArray(bugs |> List.map serializeBug)))
+type JBug = { Id : int; Details : string; Closed : Nullable<DateTime> }
+let toJbug (bug : Bug) = 
+  { Id = bug.Id; Details = bug.Details; Closed = (nullableDate bug.Closed) }
 
 let jsonMime = Writers.setMimeType "application/json"
 let getOpenBugs = 
   warbler (fun _ -> 
-    GetOpenBugs () |> serializeBugs 
-    |> fun s -> s.ToString()
+    GetOpenBugs () |> Seq.map toJbug
+    |> JsonConvert.SerializeObject
     |> OK)
 
 let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
-let okBug b = jsonMime >=> OK (b |> serializeBug |> fun s -> s.ToString())
+let okBug b = jsonMime >=> OK (b |> toJbug |> JsonConvert.SerializeObject)
 
 let createBug = 
   request (fun r -> 

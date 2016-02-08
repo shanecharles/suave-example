@@ -68,8 +68,11 @@ let reloadAppServer () =
 
 Target "run" (fun _ ->
   let app ctx = currentApp.Value ctx
-  startWebServerAsync serverConfig app |> snd |> Async.Start
+  let _, server = startWebServerAsync serverConfig app
 
+  // Start Suave to host it on localhost
+  reloadAppServer()
+  Async.Start(server)
   // Open web browser with the loaded file
   System.Diagnostics.Process.Start("http://localhost:8083") |> ignore
   

@@ -48,4 +48,4 @@ module Access =
   let GetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> OpenBugs c) |> Async.RunSynchronously
   let GetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id)) |> Async.RunSynchronously
   let UpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b)) |> Async.RunSynchronously
-  let CreateBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously
+  let NewBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously

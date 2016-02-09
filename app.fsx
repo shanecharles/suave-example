@@ -35,7 +35,7 @@ let getOpenBugs =
 let okBug b = jsonMime >=> OK (b |> toJbug |> JsonConvert.SerializeObject)
 
 let createBug = 
-  request (fun r -> r.formData "details" |> hasDetails (CreateBug >> okBug) BAD_REQUEST)
+  request (fun r -> r.formData "details" |> hasDetails (NewBug >> okBug) BAD_REQUEST)
 
 let updateBug b = 
   request (fun r -> r.formData "details" |> hasDetails ((fun d -> UpdateBug { b with Details = d }) >> okBug) BAD_REQUEST)

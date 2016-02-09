@@ -1,7 +1,8 @@
 #I "packages/Suave/lib/net40/"
+#I "packages/fsharpx.extras/lib/40/"
 #I "packages/NewtonSoft.Json/lib/net45/"
-
 #r "Suave.dll"
+#r "fsharpx.extras.dll"
 #r "newtonsoft.json.dll"
 #load "db.fsx"
 
@@ -14,59 +15,42 @@ open System
 open BugDb.Access
 open BugDb.Models
 open Newtonsoft.Json
-open Newtonsoft.Json.Linq
 
-let nullableDate : DateTime option -> Nullable<DateTime> = function
-  | None -> Nullable<DateTime> () 
-  | Some d -> Nullable d
+let ifFound = Option.map
+let getOrElse = FSharpx.Option.getOrElse
+let hasDetails = FSharpx.Choice.choice
+let bugNotFound = NOT_FOUND "No bug"
+let jsonMime = Writers.setMimeType "application/json"
 
 type JBug = { Id : int; Details : string; Closed : Nullable<DateTime> }
 let toJbug (bug : Bug) = 
-  { Id = bug.Id; Details = bug.Details; Closed = (nullableDate bug.Closed) }
+  { Id = bug.Id; Details = bug.Details; Closed = (Option.toNullable bug.Closed) }
 
-let jsonMime = Writers.setMimeType "application/json"
 let getOpenBugs = 
   warbler (fun _ -> 
     GetOpenBugs () |> Seq.map toJbug
     |> JsonConvert.SerializeObject
     |> OK)
 
-let bugNotFound = sprintf "Bug id %d is not found." >> RequestErrors.NOT_FOUND
 let okBug b = jsonMime >=> OK (b |> toJbug |> JsonConvert.SerializeObject)
 
 let createBug = 
-  request (fun r -> 
-    match r.formData "details" with
-    | Choice1Of2 d -> d |> CreateBug |> okBug
-    | Choice2Of2 _ -> BAD_REQUEST "There were no details for the developers.")
+  request (fun r -> r.formData "details" |> hasDetails (CreateBug >> okBug) BAD_REQUEST)
 
 let updateBug b = 
-  request (fun r -> 
-    match r.formData "details" with 
-    | Choice1Of2 d -> 
-      UpdateBug { b with Details = d } |> okBug
-    | Choice2Of2 m -> BAD_REQUEST m)
+  request (fun r -> r.formData "details" |> hasDetails ((fun d -> UpdateBug { b with Details = d }) >> okBug) BAD_REQUEST)
+    
+let handleBug b = choose [ GET  >=> okBug b 
+                           POST >=> updateBug b ]
 
-let handleBug id = 
-  match GetBug id with
-  | None   -> id |> bugNotFound
-  | Some b ->
-    choose [ GET  >=> okBug b 
-             POST >=> updateBug b ]
-
-let closeBug id =
-  match GetBug id with
-  | None   -> id |> bugNotFound
-  | Some b -> UpdateBug { b with Closed = Some DateTime.UtcNow }
-              |> okBug
+let closeBug b = UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
 
 let app = 
   choose
-    [ pathScan "/api/bugs/%d" handleBug 
+    [ pathScan "/api/bugs/%d" (GetBug >> ifFound handleBug >> getOrElse bugNotFound)
       POST >=> choose
         [ path "/api/bugs/create" >=> createBug 
-          pathScan "/api/bugs/%d/close" closeBug ] 
+          pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound) ] 
       GET >=> choose 
         [ path "/" >=> OK "Faster APIs with Suave.IO"
           path "/api/bugs/open" >=> jsonMime >=> getOpenBugs ]]
-

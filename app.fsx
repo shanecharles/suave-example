@@ -26,11 +26,11 @@ type JBug = { Id : int; Details : string; Closed : Nullable<DateTime> }
 let toJbug (bug : Bug) = 
   { Id = bug.Id; Details = bug.Details; Closed = (Option.toNullable bug.Closed) }
 
-let getOpenBugs = 
-  warbler (fun _ -> 
-    GetOpenBugs () |> Seq.map toJbug
-    |> JsonConvert.SerializeObject
-    |> OK)
+let serializeBugs = Seq.map toJbug >> JsonConvert.SerializeObject >> OK
+
+let getOpenBugs = warbler (fun _ -> GetOpenBugs () |> serializeBugs)
+let getAllBugs = warbler (fun _ -> GetAllBugs () |> serializeBugs)
+let getClosedBugs = warbler (fun _ -> GetClosedBugs () |> serializeBugs)
 
 let okBug b = jsonMime >=> OK (b |> toJbug |> JsonConvert.SerializeObject)
 
@@ -45,12 +45,19 @@ let handleBug b = choose [ GET  >=> okBug b
 
 let closeBug b = UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
 
+let getBugByStatus status = warbler (fun _ ->
+  match status with
+  | "open"   -> getOpenBugs
+  | "closed" -> getClosedBugs
+  | _        -> getAllBugs)
+
 let app = 
   choose
     [ pathScan "/api/bugs/%d" (GetBug >> ifFound handleBug >> getOrElse bugNotFound)
+      GET >=> pathScan "/api/bugs/%s" getBugByStatus 
       POST >=> choose
         [ path "/api/bugs/create" >=> createBug 
           pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound) ] 
       GET >=> choose 
-        [ path "/" >=> OK "Faster APIs with Suave.IO"
-          path "/api/bugs/open" >=> jsonMime >=> getOpenBugs ]]
+        [ path "/" >=> OK "Faster APIs with Suave.IO"          
+          path "/api/bugs" >=> jsonMime >=> getAllBugs ]]

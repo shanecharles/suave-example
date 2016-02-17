@@ -9,8 +9,13 @@ module Db =
   open FSharp.Core
   open Models
 
+  type BugStatus = 
+    | All
+    | Open
+    | Closed
+
   type DbQuery = 
-    | OpenBugs of AsyncReplyChannel<Bug list>
+    | Bugs of AsyncReplyChannel<Bug list> * BugStatus
     | Bug of AsyncReplyChannel<Bug option> * int
     | Update of AsyncReplyChannel<Bug> * Bug
     | Create of AsyncReplyChannel<Bug> * string
@@ -21,8 +26,12 @@ module Db =
         let! msg = inbox.Receive ()
         let newState = 
                match msg with
-               | OpenBugs c -> 
-                 c.Reply (bugs |> List.filter (fun {Closed = c} -> c.IsNone ))
+               | Bugs (c, status) ->
+                 let filt = match status with
+                            | Open   -> List.filter (fun {Closed = c} -> c.IsNone)
+                            | Closed -> List.filter (fun {Closed = c} -> c.IsSome)
+                            | _      -> (fun x -> x)
+                 c.Reply (bugs |> filt)
                  oldState
                | Bug (c, id) ->
                  c.Reply (bugs |> List.filter (fun {Id = id'} -> id = id') |> function | [] -> None | h :: _ -> Some h)
@@ -45,7 +54,9 @@ module Db =
 module Access = 
   open Db
 
-  let GetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> OpenBugs c) |> Async.RunSynchronously
+  let GetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, Open)) |> Async.RunSynchronously
+  let GetClosedBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, Closed)) |> Async.RunSynchronously
+  let GetAllBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, All)) |> Async.RunSynchronously
   let GetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id)) |> Async.RunSynchronously
   let UpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b)) |> Async.RunSynchronously
   let NewBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously

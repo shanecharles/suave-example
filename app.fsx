@@ -54,10 +54,8 @@ let getBugsByStatus status = warbler (fun _ ->
 let app = 
   choose
     [ pathScan "/api/bugs/%d" (GetBug >> ifFound handleBug >> getOrElse bugNotFound)
-      GET >=> pathScan "/api/bugs/%s" getBugsByStatus 
-      POST >=> choose
-        [ path "/api/bugs/create" >=> createBug 
-          pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound) ] 
-      GET >=> choose 
-        [ path "/" >=> OK "Faster APIs with Suave.IO"          
-          path "/api/bugs" >=> jsonMime >=> getAllBugs ]]
+      GET  >=> pathScan "/api/bugs/%s" getBugsByStatus 
+      POST >=> path "/api/bugs/create" >=> createBug 
+      POST >=> pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound)
+      GET  >=> path "/" >=> OK "Faster APIs with Suave.IO"          
+      GET  >=> path "/api/bugs" >=> jsonMime >=> getAllBugs ]

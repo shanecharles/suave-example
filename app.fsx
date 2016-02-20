@@ -57,5 +57,5 @@ let app =
       GET  >=> pathScan "/api/bugs/%s" getBugsByStatus 
       POST >=> path "/api/bugs/create" >=> createBug 
       POST >=> pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound)
-      GET  >=> path "/" >=> OK "Faster APIs with Suave.IO"          
+      GET  >=> path "/" >=> OK "<html><body><h1>Faster APIs with Suave.IO</h1></body></html>"          
       GET  >=> path "/api/bugs" >=> jsonMime >=> getAllBugs ]

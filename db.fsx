@@ -48,7 +48,7 @@ module Db =
       }
     loop (4,[{Id = 1; Details = "Nothing works"; Closed = None}
              {Id = 2; Details = "Can't add bugs."; Closed = None}
-             {Id = 3; Details = "Only Bob can close bugs"; Closed = None}])
+             {Id = 3; Details = "Only Bob can close bugs"; Closed = Some DateTime.Now}])
   )
 
 module Access = 

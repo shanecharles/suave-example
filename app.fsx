@@ -12,7 +12,7 @@ open Suave.Filters    // GET, POST, Put, ...
 open Suave.Successful
 open Suave.RequestErrors
 open System
-open BugDb.Access
+open BugDb
 open BugDb.Models
 open Newtonsoft.Json
 
@@ -28,24 +28,24 @@ let toJbug (bug : Bug) =
 
 let serializeBugs = Seq.map toJbug >> JsonConvert.SerializeObject >> OK
 
-let getAllBugs = warbler (fun _ -> GetAllBugs () |> serializeBugs)
+let getAllBugs = warbler (fun _ -> Db.GetAllBugs () |> serializeBugs)
 let serverTime = DateTimeOffset.Now.ToString() |> sprintf "Server time is always: %s" |> OK
 
-let getOpenBugs = warbler (fun _ -> GetOpenBugs () |> serializeBugs)
-let getClosedBugs = warbler (fun _ -> GetClosedBugs () |> serializeBugs)
+let getOpenBugs = warbler (fun _ -> Db.GetOpenBugs () |> serializeBugs)
+let getClosedBugs = warbler (fun _ -> Db.GetClosedBugs () |> serializeBugs)
 
 let okBug b = jsonMime >=> OK (b |> toJbug |> JsonConvert.SerializeObject)
 
 let createBug = 
-  request (fun r -> r.formData "details" |> hasDetails (NewBug >> okBug) BAD_REQUEST)
+  request (fun r -> r.formData "details" |> hasDetails (Db.NewBug >> okBug) BAD_REQUEST)
 
 let updateBug b = 
-  request (fun r -> r.formData "details" |> hasDetails ((fun d -> UpdateBug { b with Details = d }) >> okBug) BAD_REQUEST)
+  request (fun r -> r.formData "details" |> hasDetails ((fun d -> Db.UpdateBug { b with Details = d }) >> okBug) BAD_REQUEST)
     
 let getOrUpdateBug b = choose [ GET  >=> okBug b 
                                 POST >=> updateBug b ]
 
-let closeBug b = UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
+let closeBug b = Db.UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
 
 let getBugsByStatus = function
   | "open"   -> getOpenBugs
@@ -55,9 +55,9 @@ let getBugsByStatus = function
 let app = 
   choose
     [ GET  >=> path "/" >=> OK "<html><body><h1>Faster APIs with Suave.IO</h1></body></html>"          
-      pathScan "/api/bugs/%d" (GetBug >> ifFound getOrUpdateBug >> getOrElse bugNotFound)
+      pathScan "/api/bugs/%d" (Db.GetBug >> ifFound getOrUpdateBug >> getOrElse bugNotFound)
       GET  >=> pathScan "/api/bugs/%s" getBugsByStatus 
       POST >=> path "/api/bugs/create" >=> createBug 
-      POST >=> pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound)
+      POST >=> pathScan "/api/bugs/%d/close" (Db.GetBug >> ifFound closeBug >> getOrElse bugNotFound)
       GET  >=> path "/api/bugs" >=> jsonMime >=> getAllBugs
       GET  >=> path "/api/time" >=> serverTime ]

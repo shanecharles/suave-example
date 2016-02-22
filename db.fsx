@@ -4,7 +4,7 @@ module Models =
   open System
   type Bug = { Id : int; Details : string; Closed : DateTime option }
 
-module Db =
+module Database =
   open System
   open FSharp.Core
   open Models
@@ -51,12 +51,12 @@ module Db =
              {Id = 3; Details = "Only Bob can close bugs"; Closed = Some DateTime.Now}])
   )
 
-module Access = 
-  open Db
+module Db = 
+  open Database
 
-  let GetOpenBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, Open)) |> Async.RunSynchronously
-  let GetClosedBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, Closed)) |> Async.RunSynchronously
-  let GetAllBugs () = Db.db.PostAndAsyncReply(fun c -> Bugs (c, All)) |> Async.RunSynchronously
-  let GetBug id = Db.db.PostAndAsyncReply(fun c -> Bug (c,id)) |> Async.RunSynchronously
-  let UpdateBug b = Db.db.PostAndAsyncReply(fun c -> Update (c, b)) |> Async.RunSynchronously
-  let NewBug d = Db.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously
+  let GetOpenBugs () = Database.db.PostAndAsyncReply(fun c -> Bugs (c, Open)) |> Async.RunSynchronously
+  let GetClosedBugs () = Database.db.PostAndAsyncReply(fun c -> Bugs (c, Closed)) |> Async.RunSynchronously
+  let GetAllBugs () = Database.db.PostAndAsyncReply(fun c -> Bugs (c, All)) |> Async.RunSynchronously
+  let GetBug id = Database.db.PostAndAsyncReply(fun c -> Bug (c,id)) |> Async.RunSynchronously
+  let UpdateBug b = Database.db.PostAndAsyncReply(fun c -> Update (c, b)) |> Async.RunSynchronously
+  let NewBug d = Database.db.PostAndAsyncReply(fun c -> Create (c, d)) |> Async.RunSynchronously

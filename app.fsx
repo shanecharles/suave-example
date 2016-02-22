@@ -28,6 +28,7 @@ let toJbug (bug : Bug) =
 
 let serializeBugs = Seq.map toJbug >> JsonConvert.SerializeObject >> OK
 
+let serverTime = DateTimeOffset.Now.ToString() |> sprintf "Server time is always: %s" |> OK
 let getOpenBugs = warbler (fun _ -> GetOpenBugs () |> serializeBugs)
 let getAllBugs = warbler (fun _ -> GetAllBugs () |> serializeBugs)
 let getClosedBugs = warbler (fun _ -> GetClosedBugs () |> serializeBugs)
@@ -58,4 +59,5 @@ let app =
       POST >=> path "/api/bugs/create" >=> createBug 
       POST >=> pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound)
       GET  >=> path "/" >=> OK "<html><body><h1>Faster APIs with Suave.IO</h1></body></html>"          
-      GET  >=> path "/api/bugs" >=> jsonMime >=> getAllBugs ]
+      GET  >=> path "/api/bugs" >=> jsonMime >=> getAllBugs
+      GET  >=> path "/api/time" >=> serverTime ]

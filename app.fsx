@@ -40,8 +40,8 @@ let createBug =
 let updateBug b = 
   request (fun r -> r.formData "details" |> hasDetails ((fun d -> UpdateBug { b with Details = d }) >> okBug) BAD_REQUEST)
     
-let handleBug b = choose [ GET  >=> okBug b 
-                           POST >=> updateBug b ]
+let getOrUpdateBug b = choose [ GET  >=> okBug b 
+                                POST >=> updateBug b ]
 
 let closeBug b = UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
 
@@ -53,7 +53,7 @@ let getBugsByStatus status = warbler (fun _ ->
 
 let app = 
   choose
-    [ pathScan "/api/bugs/%d" (GetBug >> ifFound handleBug >> getOrElse bugNotFound)
+    [ pathScan "/api/bugs/%d" (GetBug >> ifFound getOrUpdateBug >> getOrElse bugNotFound)
       GET  >=> pathScan "/api/bugs/%s" getBugsByStatus 
       POST >=> path "/api/bugs/create" >=> createBug 
       POST >=> pathScan "/api/bugs/%d/close" (GetBug >> ifFound closeBug >> getOrElse bugNotFound)

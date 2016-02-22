@@ -29,7 +29,7 @@ let toJbug (bug : Bug) =
 let serializeBugs = Seq.map toJbug >> JsonConvert.SerializeObject >> OK
 
 let getAllBugs = warbler (fun _ -> Db.GetAllBugs () |> serializeBugs)
-let serverTime = DateTimeOffset.Now.ToString() |> sprintf "Server time is always: %s" |> OK
+let serverTime = DateTimeOffset.Now.ToString() |> sprintf "Without warbler () server time is always: %s" |> OK
 
 let getOpenBugs = warbler (fun _ -> Db.GetOpenBugs () |> serializeBugs)
 let getClosedBugs = warbler (fun _ -> Db.GetClosedBugs () |> serializeBugs)
@@ -48,9 +48,9 @@ let getOrUpdateBug b = choose [ GET  >=> okBug b
 let closeBug b = Db.UpdateBug { b with Closed = Some DateTime.UtcNow } |> okBug
 
 let getBugsByStatus = function
-  | "open"   -> getOpenBugs
+  | "all"    -> getAllBugs
   | "closed" -> getClosedBugs
-  | _        -> getAllBugs
+  | _        -> getOpenBugs
 
 let app = 
   choose
